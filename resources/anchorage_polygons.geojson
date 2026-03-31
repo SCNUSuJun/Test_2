@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "name": "anchorage_polygons",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "清单 §6：锚地多边形占位（与 anchorage_exclusion 几何一致）",
+        "use_for_train_filter": true,
+        "use_for_visualization": true,
+        "alias_of": "anchorage_exclusion.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-118.32, 33.62],
+          [-118.26, 33.62],
+          [-118.26, 33.66],
+          [-118.32, 33.66],
+          [-118.32, 33.62]
+        ]]
+      }
+    }
+  ]
+}

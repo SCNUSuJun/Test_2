@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "name": "pilot_waiting_area",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "清单 §6：引航等待区（与 pilot_wait_area.geojson 几何一致）",
+        "use_for_train_filter": false,
+        "use_for_visualization": true,
+        "alias_of": "pilot_wait_area.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-118.30, 33.58],
+          [-118.24, 33.58],
+          [-118.24, 33.62],
+          [-118.30, 33.62],
+          [-118.30, 33.58]
+        ]]
+      }
+    }
+  ]
+}

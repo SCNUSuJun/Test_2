@@ -1,0 +1,53 @@
+{
+  "type": "FeatureCollection",
+  "name": "main_route_corridors",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "清单 §6：合并进港主航路走廊",
+        "use_for_train_filter": true,
+        "use_for_visualization": true,
+        "source_file": "main_inbound_corridor.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-118.45, 33.50],
+          [-118.20, 33.55],
+          [-118.18, 33.52],
+          [-118.43, 33.47],
+          [-118.45, 33.50]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "清单 §6：合并离港主航路走廊",
+        "use_for_train_filter": true,
+        "use_for_visualization": true,
+        "source_file": "main_outbound_corridor.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-118.20, 33.55],
+          [-118.45, 33.50],
+          [-118.43, 33.47],
+          [-118.18, 33.52],
+          [-118.20, 33.55]
+        ]]
+      }
+    }
+  ]
+}

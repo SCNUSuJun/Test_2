@@ -1,0 +1,39 @@
+# 大数据与本地数据（勿入库）
+/datasets/
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# 测试与工具缓存
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# 运行产物（可再生成）
+/outputs/
+
+# 编辑器与系统
+.idea/
+.vscode/
+*.swp
+.DS_Store
+.cursor/
+
+# 日志
+*.log
+
+# Jupyter
+.ipynb_checkpoints/

@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "name": "terminal_polygons",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "清单 §6：码头/泊位多边形占位（与 terminal_exclusion 几何一致）",
+        "use_for_train_filter": true,
+        "use_for_visualization": true,
+        "alias_of": "terminal_exclusion.geojson"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-118.28, 33.72],
+          [-118.22, 33.72],
+          [-118.22, 33.76],
+          [-118.28, 33.76],
+          [-118.28, 33.72]
+        ]]
+      }
+    }
+  ]
+}

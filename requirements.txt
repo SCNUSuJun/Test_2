@@ -1,0 +1,25 @@
+# RSTPM 项目依赖
+# Python >= 3.9
+
+# 核心数据处理
+numpy>=1.24.0
+pandas>=2.0.0
+pyarrow>=14.0.0          # 步骤1 按日 parquet（run_with_checkpoint）
+shapely>=2.0.0           # 步骤1b / 步骤3 空间几何（GeoJSON）
+
+# 机器学习 / 深度学习
+torch>=2.0.0
+scikit-learn>=1.3.0
+
+# 聚类加速（当前 step6c 未接入 numba；保留依赖供后续 JIT 优化）
+numba>=0.58.0
+
+# 可视化（评估和调试）
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# 测试
+pytest>=7.4.0
+
+# 日志与工具
+tqdm>=4.65.0            # 进度条

@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "name": "main_inbound_corridor",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "Inbound main route corridor (buffer in QGIS recommended)",
+        "use_for_train_filter": true,
+        "use_for_visualization": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-118.45, 33.50],
+          [-118.20, 33.55],
+          [-118.18, 33.52],
+          [-118.43, 33.47],
+          [-118.45, 33.50]
+        ]]
+      }
+    }
+  ]
+}

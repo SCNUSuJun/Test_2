@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "name": "channel_centerlines",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "creator": "RSTPM_placeholder",
+        "data_source": "manual_placeholder",
+        "version": "0.1",
+        "created": "2026-04-01",
+        "purpose": "Channel centerline placeholder (LineString)",
+        "use_for_train_filter": false,
+        "use_for_visualization": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-118.42, 33.48],
+          [-118.30, 33.55],
+          [-118.20, 33.60]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": "1",
+  "crs_note": "WGS84 EPSG:4326 lon/lat",
+  "assets": [
+    {
+      "path": "san_pedro_roi.geojson",
+      "role": "san_pedro_roi_listing",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "san_pedro_outer_roi.geojson",
+      "role": "outer_roi_polygon",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "la_lb_inner_harbor_roi.geojson",
+      "role": "inner_harbor_roi",
+      "version": "0.1",
+      "use_for_train_filter": false
+    },
+    {
+      "path": "main_route_corridors.geojson",
+      "role": "main_route_corridors_listing",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "main_inbound_corridor.geojson",
+      "role": "main_inbound_corridor",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "main_outbound_corridor.geojson",
+      "role": "main_outbound_corridor",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "terminal_polygons.geojson",
+      "role": "terminal_polygons_listing",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "terminal_exclusion.geojson",
+      "role": "terminal_exclusion",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "anchorage_polygons.geojson",
+      "role": "anchorage_polygons_listing",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "anchorage_exclusion.geojson",
+      "role": "anchorage_exclusion",
+      "version": "0.1",
+      "use_for_train_filter": true
+    },
+    {
+      "path": "pilot_waiting_area.geojson",
+      "role": "pilot_waiting_area_listing",
+      "version": "0.1",
+      "use_for_train_filter": false
+    },
+    {
+      "path": "pilot_wait_area.geojson",
+      "role": "pilot_wait_optional",
+      "version": "0.1",
+      "use_for_train_filter": false
+    },
+    {
+      "path": "channel_centerlines.geojson",
+      "role": "channel_centerlines",
+      "version": "0.1",
+      "use_for_train_filter": false
+    }
+  ]
+}
