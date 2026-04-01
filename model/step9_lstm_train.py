@@ -108,8 +108,9 @@ class LSTMTrainer:
                 sse += torch.sum((pred - yb) ** 2).item()
         avg_loss = total / max(n, 1)
         mse = sse / max(n * feat, 1) if n else 0.0
-        acc = float(1.0 / (1.0 + mse))
-        return avg_loss, acc
+        # 归一化空间 1/(1+MSE)，非地理精度；日志字段仍沿用 *_acc 以免破坏既有解析
+        norm_fit = float(1.0 / (1.0 + mse))
+        return avg_loss, norm_fit
 
     def train_cluster_model(
         self,

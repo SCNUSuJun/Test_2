@@ -1,8 +1,8 @@
 # RSTPM 项目结构说明（供 ChatGPT / 人工审查速览）
 
-> 业务真源：**[RSTPM_full_pipeline.md](RSTPM_full_pipeline.md)**（全链路 12 步）。  
+> 业务真源：**[RSTPM_full_pipeline_surgical_fix_LALB.md](RSTPM_full_pipeline_surgical_fix_LALB.md)**（全链路 12 步全文）；入口 **[RSTPM_full_pipeline.md](RSTPM_full_pipeline.md)**。  
 > 工程约束：**[.cursorrules](.cursorrules)**。  
-> **[方案3.md](方案3.md)**：索引 `RSTPM_full_pipeline.md` 与 **[LB_LA_ADAPTATION_PLAN.md](LB_LA_ADAPTATION_PLAN.md)**。  
+> **索引真源：[方案3.md](方案3.md)**（指向上述全文与 **[LB_LA_ADAPTATION_PLAN.md](LB_LA_ADAPTATION_PLAN.md)**）。  
 > 参数分层：**[PARAM_LAYERS.md](PARAM_LAYERS.md)**；实验模板：**[EXPERIMENT_LOG_TEMPLATE.md](EXPERIMENT_LOG_TEMPLATE.md)**。
 
 **依赖**：开发与 CI 以根目录 **`requirements.txt`** 为完整依赖清单；**`pyproject.toml`** 为可编辑安装的最小运行时声明，集合未必逐项相同（见 README）。
@@ -12,7 +12,7 @@
 ## 一、建议阅读顺序（按数据流）
 
 1. **真源与规则**  
-   - `RSTPM_full_pipeline.md` → 算法与参数定义  
+   - `方案3.md` → 索引；`RSTPM_full_pipeline_surgical_fix_LALB.md` → 算法与参数全文  
    - `.cursorrules` → 不可静默漂移的硬性约定  
 
 2. **配置单一入口**  
@@ -45,8 +45,9 @@
 
 ```
 RSTPM/
-├── RSTPM_full_pipeline.md      # 方案全文（审查基准）
-├── 方案3.md                    # 若有：真源索引，指向 RSTPM_full_pipeline.md
+├── RSTPM_full_pipeline.md      # 方案入口（指向 surgical_fix 全文）
+├── RSTPM_full_pipeline_surgical_fix_LALB.md  # 12 步全文（审查主基准）
+├── 方案3.md                    # 真源索引（链接全文与 LB_LA 适配）
 ├── .cursorrules                # AI/开发硬性约定
 ├── README.md                   # 人类上手说明
 ├── PROJECT_STRUCTURE_FOR_REVIEW.md  # 本文件
@@ -80,7 +81,8 @@ RSTPM/
 ├── online/                     # 步骤 10–12
 │   ├── step10_realtime_preprocess.py
 │   ├── step11_cluster_match.py
-│   └── step12_prediction.py
+│   ├── step12_prediction.py
+│   └── fork_disambiguation.py  # 方案 11.4 第四步（跨调用）
 │
 ├── utils/
 │   ├── common.py
@@ -94,7 +96,8 @@ RSTPM/
 │   ├── fork_resources.py       # ABC 接口
 │   ├── implementations.py      # 内存统计、Null 几何、几何剪枝钩子
 │   ├── geo_asset_manifest.json # 空间资源清单（清单 46）
-│   └── *.geojson               # ROI / corridor / exclusion 占位几何
+│   ├── fork_junctions.json     # 方案 11.4 分叉口（默认可空数组）
+│   └── *.geojson               # ROI / corridor / channel_centerlines 等
 │
 ├── scripts/
 │   ├── run_offline_training.py # 离线全链路
@@ -149,4 +152,4 @@ RSTPM/
 
 ## 五、给审查者的一句话
 
-先对照 **RSTPM_full_pipeline.md** 逐步编号，用 **`scripts/run_offline_training.py` / `run_online_prediction.py`** 核对调用链，用 **`config/settings.py`** 核对参数单一来源，用 **`schemas/assets.py`** 核对在线输出字段（如 `points` 与 `t`）。
+先对照 **RSTPM_full_pipeline_surgical_fix_LALB.md**（经 **方案3.md** 索引）逐步编号，用 **`scripts/run_offline_training.py` / `run_online_prediction.py`** 核对调用链，用 **`config/settings.py`** 核对参数单一来源，用 **`schemas/assets.py`** 核对在线输出字段（如 `points` 与 `t`）。

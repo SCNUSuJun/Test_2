@@ -174,3 +174,23 @@ def test_berth_label_only_preserves_rows_and_columns(tmp_path):
     assert len(out) == len(df)
     assert "is_terminal_dwell" in out.columns
     assert bool(out.iloc[0]["is_terminal_dwell"])
+
+
+def test_step10_online_validate_aligns_offline_missing_cog():
+    """在线 validate_message 与 allow_missing_cog_rows 一致，避免 train/serve 拒收 NaN COG。"""
+    from config import FilterConfig, PredictConfig, ResampleConfig
+    from online.step10_realtime_preprocess import RealtimePreprocessor
+
+    f = FilterConfig(
+        lon_min=-120.0,
+        lon_max=-117.0,
+        lat_min=33.0,
+        lat_max=35.0,
+        allow_missing_cog_rows=True,
+    )
+    pre = RealtimePreprocessor(f, ResampleConfig(), PredictConfig(), max_T=4)
+    cog_nan = float("nan")
+    assert pre.validate_message(1, 0.0, -118.0, 34.0, 5.0, cog_nan)
+    assert not pre.validate_message(1, 0.0, -118.0, 34.0, 5.0, 400.0)
+    cog_bad = pre.normalize_incoming_cog(f, 360.0)
+    assert cog_bad != cog_bad

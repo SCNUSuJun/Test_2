@@ -1,0 +1,5 @@
+{
+  "schema_version": "1",
+  "junctions": [],
+  "_comment": "方案 11.4：在分叉口附近注册圆域与候选 cluster_ids。示例项 {\"id\":\"j1\",\"lon\":-118.25,\"lat\":33.72,\"radius_m\":800,\"cluster_ids\":[0,1]}"
+}

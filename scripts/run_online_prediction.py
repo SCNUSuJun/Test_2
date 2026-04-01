@@ -10,7 +10,8 @@ import json
 import argparse
 import urllib.request
 import urllib.error
-from typing import List, Optional
+import copy
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -18,13 +19,29 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import get_default_config, RSTPMConfig
 from online import RealtimePreprocessor, ClusterMatcher, TrajectoryPredictor
+from online.fork_disambiguation import (
+    ForkDisambiguationState,
+    candidates_compatible,
+    try_lock_fork_state,
+    update_fork_state_with_observation,
+)
 from resources import (
     InMemoryMmsiBranchStatsStore,
     NullChannelGeometryStore,
     NullForkJunctionRegistry,
+    load_channel_geometry_store,
+    load_fork_junction_registry,
     prune_branch_predictions_by_geometry,
 )
 from utils import setup_logger
+
+
+def _default_resource_paths() -> Tuple[str, str]:
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return (
+        os.path.join(root, "resources", "channel_centerlines.geojson"),
+        os.path.join(root, "resources", "fork_junctions.json"),
+    )
 
 
 def _parse_api_payload(raw: bytes) -> List[dict]:
@@ -46,7 +63,12 @@ def _parse_api_payload(raw: bytes) -> List[dict]:
 class OnlinePredictionSystem:
     """整合步骤10/11/12。"""
 
-    def __init__(self, config: RSTPMConfig):
+    def __init__(
+        self,
+        config: RSTPMConfig,
+        geometry_store: Any = None,
+        junction_registry: Any = None,
+    ):
         self.config = config
         self.logger = setup_logger("OnlineSystem", config.paths.log_dir)
         self.branch_stats = InMemoryMmsiBranchStatsStore()
@@ -56,18 +78,26 @@ class OnlinePredictionSystem:
             predict_config=config.predict,
             max_T=int(config.predict.buffer_capacity_steps),
         )
+        geo = geometry_store if geometry_store is not None else NullChannelGeometryStore()
+        junc = (
+            junction_registry
+            if junction_registry is not None
+            else NullForkJunctionRegistry()
+        )
         self.matcher = ClusterMatcher(
             config.predict,
-            geometry_store=NullChannelGeometryStore(),
+            geometry_store=geo,
             branch_stats_store=self.branch_stats,
-            junction_registry=NullForkJunctionRegistry(),
+            junction_registry=junc,
             device=config.device,
         )
         self.predictor = TrajectoryPredictor(
             predict_config=config.predict,
             resample_config=config.resample,
             device=config.device,
+            normalization_epsilon=config.normalization.epsilon,
         )
+        self._fork_states: Dict[int, ForkDisambiguationState] = {}
     def load_offline_assets(self) -> None:
         self.logger.info("加载离线训练产物...")
         self.matcher.load_cluster_assets(
@@ -111,58 +141,143 @@ class OnlinePredictionSystem:
             for (mmsi, cid), g in df.groupby(["MMSI", "cluster_id"]):
                 self.branch_stats.seed_from_counts(int(mmsi), {int(cid): len(g)})
 
+    def _predict_locked_cluster(
+        self,
+        mmsi: int,
+        cluster_id: int,
+        buf,
+        current_timestamp: float,
+        P: int,
+    ) -> dict:
+        asset = self.matcher.cluster_assets.get(int(cluster_id))
+        if asset is None:
+            return {"status": "missing_cluster_asset", "mmsi": mmsi, "cluster_id": cluster_id}
+        preds = self.predictor.predict_multi_step(
+            asset.model,
+            buf,
+            asset.norm_params,
+            asset.T,
+            P,
+            current_timestamp,
+        )
+        return self.predictor.format_prediction_output(
+            mmsi,
+            int(cluster_id),
+            preds,
+            is_fork=False,
+            fork_locked_by_disambiguation=True,
+        )
+
     def predict_for_vessel(self, mmsi: int, current_timestamp: float) -> dict:
         buf = self.preprocessor.get_vessel_buffer(mmsi)
         if buf is None:
             return {"status": "no_buffer", "mmsi": mmsi}
 
+        pc = self.config.predict
+        P = pc.prediction_steps
+        earth_r = float(self.config.filter.earth_radius)
+
+        st0 = self._fork_states.get(mmsi)
+        if st0 is not None and st0.segment_id != buf.segment_id:
+            del self._fork_states[mmsi]
+
+        if (
+            pc.fork_disambiguation_enabled
+            and mmsi in self._fork_states
+            and self._fork_states[mmsi].locked_cluster_id is not None
+        ):
+            cid_lock = self._fork_states[mmsi].locked_cluster_id
+            out = self._predict_locked_cluster(
+                mmsi, int(cid_lock), buf, current_timestamp, P
+            )
+            if out.get("status") != "missing_cluster_asset":
+                return out
+            del self._fork_states[mmsi]
+
         fork_cands = self.matcher.detect_fork_situation(buf)
-        P = self.config.predict.prediction_steps
 
-        if fork_cands is not None and len(fork_cands) >= 2:
-            cids = [c["cluster_id"] for c in fork_cands]
-            probs = self.matcher.compute_fork_probabilities(mmsi, cids)
-            branch = self.predictor.predict_with_fork(
-                fork_cands, buf, current_timestamp
+        if fork_cands is None or len(fork_cands) < 2:
+            st = self._fork_states.get(mmsi)
+            if st is not None and st.locked_cluster_id is None:
+                del self._fork_states[mmsi]
+            match = self.matcher.match_single_vessel(buf)
+            if match.get("is_unknown"):
+                return {
+                    "status": "unknown_cluster",
+                    "mmsi": mmsi,
+                    "match_distance": match.get("match_distance"),
+                }
+            preds = self.predictor.predict_multi_step(
+                match["model"],
+                buf,
+                match["norm_params"],
+                match["T"],
+                P,
+                current_timestamp,
             )
-            last = buf.get_latest_point()
-            if last is not None:
-                _, obs_lon, obs_lat, _, _ = last
-                branch = prune_branch_predictions_by_geometry(
-                    self.matcher.geometry_store,
-                    obs_lon,
-                    obs_lat,
-                    branch,
-                    self.config.predict.fork_deviation_threshold,
-                )
-            primary = fork_cands[0]["cluster_id"]
-            primary_preds = branch.get(primary, [])
             return self.predictor.format_prediction_output(
-                mmsi,
-                primary,
-                primary_preds,
-                fork_probabilities=probs,
-                is_fork=True,
-                branch_predictions=branch,
+                mmsi, match["cluster_id"], preds, is_fork=False
             )
 
-        match = self.matcher.match_single_vessel(buf)
-        if match.get("is_unknown"):
-            return {
-                "status": "unknown_cluster",
-                "mmsi": mmsi,
-                "match_distance": match.get("match_distance"),
-            }
-        preds = self.predictor.predict_multi_step(
-            match["model"],
-            buf,
-            match["norm_params"],
-            match["T"],
-            P,
-            current_timestamp,
+        cids = [c["cluster_id"] for c in fork_cands]
+        probs = self.matcher.compute_fork_probabilities(mmsi, cids)
+        branch = self.predictor.predict_with_fork(
+            fork_cands, buf, current_timestamp
         )
+        last = buf.get_latest_point()
+        if last is not None:
+            _, obs_lon, obs_lat, _, _ = last
+            branch = prune_branch_predictions_by_geometry(
+                self.matcher.geometry_store,
+                obs_lon,
+                obs_lat,
+                branch,
+                pc.fork_deviation_threshold,
+            )
+
+        if pc.fork_disambiguation_enabled:
+            st = self._fork_states.get(mmsi)
+            new_ids = tuple(sorted(cids))
+            if st is None or st.segment_id != buf.segment_id:
+                st = ForkDisambiguationState(
+                    segment_id=buf.segment_id, candidate_ids=new_ids
+                )
+                self._fork_states[mmsi] = st
+            elif not candidates_compatible(st.candidate_ids, cids):
+                st = ForkDisambiguationState(
+                    segment_id=buf.segment_id, candidate_ids=new_ids
+                )
+                self._fork_states[mmsi] = st
+
+            latest = buf.get_latest_point()
+            if latest is not None and st.last_branch_predictions:
+                update_fork_state_with_observation(
+                    st, float(latest[1]), float(latest[2]), earth_r
+                )
+            locked_id = try_lock_fork_state(
+                st,
+                pc.fork_disambiguation_min_observations,
+                pc.fork_disambiguation_error_ratio,
+            )
+            if locked_id is not None:
+                out = self._predict_locked_cluster(
+                    mmsi, int(locked_id), buf, current_timestamp, P
+                )
+                if out.get("status") != "missing_cluster_asset":
+                    return out
+                del self._fork_states[mmsi]
+
+            st.last_branch_predictions = copy.deepcopy(branch)
+
+        primary = fork_cands[0]["cluster_id"]
+        primary_preds = branch.get(primary, [])
         return self.predictor.format_prediction_output(
-            mmsi, match["cluster_id"], preds, is_fork=False
+            mmsi,
+            primary,
+            primary_preds,
+            fork_probabilities=probs,
+            is_fork=True,
+            branch_predictions=branch,
         )
 
     def process_ais_message(
@@ -263,12 +378,38 @@ def main():
         default=None,
         help="实时模式最大轮数（默认无限，调试时可设 1）",
     )
+    parser.add_argument(
+        "--channel_geojson",
+        type=str,
+        default=None,
+        help="航道中心线 GeoJSON（LineString）；默认若存在 resources/channel_centerlines.geojson 则加载",
+    )
+    parser.add_argument(
+        "--fork_junctions_json",
+        type=str,
+        default=None,
+        help="分叉口注册 JSON；默认若存在且非空 resources/fork_junctions.json 则加载",
+    )
     args = parser.parse_args()
 
     config = get_default_config()
     config.device = args.device
 
-    system = OnlinePredictionSystem(config)
+    g_def, j_def = _default_resource_paths()
+    geo_path = args.channel_geojson or (
+        g_def if os.path.isfile(g_def) else None
+    )
+    junc_path = args.fork_junctions_json or (
+        j_def if os.path.isfile(j_def) else None
+    )
+    geometry_store = load_channel_geometry_store(geo_path)
+    junction_registry = load_fork_junction_registry(junc_path)
+
+    system = OnlinePredictionSystem(
+        config,
+        geometry_store=geometry_store,
+        junction_registry=junction_registry,
+    )
     system.load_offline_assets()
 
     if args.mode == "simulate":

@@ -221,7 +221,9 @@ class FilterConfig:
     earth_radius: float = 6371000.0
 
     duplicate_time_threshold: float = 1.0
-    # Marine Cadastre 域：True 时 COG 缺失行不因航向规则删除（清单 13）
+    # Marine Cadastre 域（LB_LA_ADAPTATION_PLAN §4.1 domain_adapted）：
+    # True：COG=360 置 NaN 后不因 COG 缺失删行；False：对齐方案 2.5 字面「剔除无可用 COG 行」。
+    # 每次实验须在 EXPERIMENT_LOG_TEMPLATE「步骤2：COG」中记录本开关，避免复现口径漂移。
     allow_missing_cog_rows: bool = True
 
 
@@ -371,10 +373,15 @@ class PredictConfig:
     buffer_timeout: float = 7200.0
     # 单船滑动缓冲最大点数（步骤10）；加载离线资产后会与各簇模型 T 取较大值并打日志
     buffer_capacity_steps: int = 14
+    # 11.3：None 时用 outputs/clusters/match_unknown_threshold.json 标定值，否则 unknown_threshold_fallback（须在实验记录中写明来源）
     unknown_threshold: Optional[float] = None
     unknown_threshold_fallback: float = 0.15
     max_fork_branches: int = 3
     fork_deviation_threshold: float = 10.0
+    # 方案 11.4 第四步：跨多次预测调用，用新观测与上一时刻各分支首步预测比距，累积后锁定航路
+    fork_disambiguation_min_observations: int = 2
+    fork_disambiguation_error_ratio: float = 1.35
+    fork_disambiguation_enabled: bool = True
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

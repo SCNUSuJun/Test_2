@@ -49,10 +49,10 @@ class PredictionEvaluator:
             raise ValueError("航向序列长度必须一致")
         return _heading_error_vectorized(pred_cog, true_cog)
 
-    def compute_accuracy(self, pred: np.ndarray, true: np.ndarray) -> float:
+    def compute_norm_space_fit(self, pred: np.ndarray, true: np.ndarray) -> float:
         """
-        归一化空间吻合度，与 LSTMTrainer.evaluate 一致：1 / (1 + mse)。
-        pred/true shape (N, F) 或展平后逐元素。
+        归一化特征空间的拟合度 1/(1+MSE)，与 LSTMTrainer.evaluate 中 acc 定义一致。
+        不是地理米级精度或业务「准确率」；对外汇报应优先 ADE/MDE 与速度/航向误差。
         """
         p = np.asarray(pred, dtype=np.float64).ravel()
         t = np.asarray(true, dtype=np.float64).ravel()
@@ -62,6 +62,10 @@ class PredictionEvaluator:
             return 0.0
         mse = float(np.mean((p - t) ** 2))
         return float(1.0 / (1.0 + mse))
+
+    def compute_accuracy(self, pred: np.ndarray, true: np.ndarray) -> float:
+        """兼容旧名；请优先使用 compute_norm_space_fit。"""
+        return self.compute_norm_space_fit(pred, true)
 
     def _lists_to_arrays(
         self, predictions: List[Dict], ground_truth: List[Dict]
@@ -130,6 +134,7 @@ class PredictionEvaluator:
                 "avg_heading_error": float("nan"),
                 "max_heading_error": float("nan"),
                 "per_step_distance": np.array([]),
+                "norm_space_fit": float("nan"),
                 "norm_accuracy": float("nan"),
             }
         dist = self.compute_distance_error(plon, plat, tlon, tlat)
@@ -145,7 +150,8 @@ class PredictionEvaluator:
             "avg_heading_error": float(np.mean(hdg)),
             "max_heading_error": float(np.max(hdg)),
             "per_step_distance": dist,
-            "norm_accuracy": self.compute_accuracy(pred_nf, true_nf),
+            "norm_space_fit": self.compute_norm_space_fit(pred_nf, true_nf),
+            "norm_accuracy": self.compute_norm_space_fit(pred_nf, true_nf),
         }
 
     def evaluate_cluster_model(
@@ -170,7 +176,7 @@ class PredictionEvaluator:
             mxs.append(m["max_speed_error"])
             avh.append(m["avg_heading_error"])
             mxh.append(m["max_heading_error"])
-            naccs.append(m["norm_accuracy"])
+            naccs.append(m["norm_space_fit"])
         if not ades:
             return {
                 "cluster_id": cluster_id,
@@ -193,6 +199,7 @@ class PredictionEvaluator:
             "max_speed_error_mean": float(np.mean(mxs)),
             "avg_heading_error_mean": float(np.mean(avh)),
             "max_heading_error_mean": float(np.mean(mxh)),
+            "norm_space_fit_mean": float(np.mean(naccs)),
             "norm_accuracy_mean": float(np.mean(naccs)),
         }
 
@@ -212,6 +219,7 @@ class PredictionEvaluator:
                 "max_speed_error_mean",
                 "avg_heading_error_mean",
                 "max_heading_error_mean",
+                "norm_space_fit_mean",
                 "norm_accuracy_mean",
             ):
                 if k in r:

@@ -21,12 +21,35 @@ from utils import (
 )
 
 
+def _fill_nan_cog_like_offline_step5(cog_arr: np.ndarray) -> np.ndarray:
+    """与 step5 一致：ffill → bfill → 剩余 0，避免 NaN COG 阻断圆周插值。"""
+    x = np.asarray(cog_arr, dtype=np.float64).copy()
+    if x.size == 0:
+        return x
+    last = 0.0
+    for i in range(len(x)):
+        if np.isfinite(x[i]):
+            last = x[i]
+        else:
+            x[i] = last
+    last = float(x[-1])
+    for i in range(len(x) - 1, -1, -1):
+        if np.isfinite(x[i]):
+            last = x[i]
+        else:
+            x[i] = last
+    x[~np.isfinite(x)] = 0.0
+    return x
+
+
 class VesselBuffer:
     """单船滑动缓冲区：等间隔点 (timestamp_unix, lon, lat, sog, cog)"""
 
     def __init__(self, mmsi: int, max_length: int):
         self.mmsi = mmsi
         self.max_length = max_length
+        # 缓冲因超时清空或新航段重置时递增，供方案 11.4 分叉消歧状态与航段对齐
+        self.segment_id: int = 0
         self.data: List[Tuple[float, float, float, float, float]] = []
         # 自当前航段起按时间排序的原始 AIS，用于与离线 step5 searchsorted 分段线性一致（清单 43）
         self.ais_history: List[Tuple[float, float, float, float, float]] = []
@@ -40,6 +63,7 @@ class VesselBuffer:
         return self.data[-1]
 
     def clear(self) -> None:
+        self.segment_id += 1
         self.data.clear()
         self.ais_history.clear()
 
@@ -78,6 +102,16 @@ class RealtimePreprocessor:
         self.logger = setup_logger("RealtimePreprocessor")
         self.buffers: Dict[int, VesselBuffer] = {}
 
+    @staticmethod
+    def normalize_incoming_cog(filter_cfg: FilterConfig, cog: float) -> float:
+        """与步骤 2 哨兵语义一致：COG >= cog_unavailable → NaN（Marine Cadastre 360）。"""
+        v = float(cog)
+        if v != v:
+            return float("nan")
+        if v >= float(filter_cfg.cog_unavailable):
+            return float("nan")
+        return v
+
     def validate_message(
         self,
         mmsi: int,
@@ -92,8 +126,13 @@ class RealtimePreprocessor:
             return False
         if sog != sog or sog < c.sog_min or sog > c.sog_max:
             return False
-        if cog != cog or cog < c.cog_min or cog >= c.cog_max:
-            return False
+        # 与 AnomalyFilter.filter_cog + allow_missing_cog_rows 对齐，消除 train/serve 分叉
+        if c.allow_missing_cog_rows:
+            if cog == cog and not (c.cog_min <= cog < c.cog_max):
+                return False
+        else:
+            if cog != cog or not (c.cog_min <= cog < c.cog_max):
+                return False
         return True
 
     def check_jump_distance(
@@ -126,7 +165,9 @@ class RealtimePreprocessor:
         lon_o = np.array([h[1] for h in hist], dtype=np.float64)
         lat_o = np.array([h[2] for h in hist], dtype=np.float64)
         sog_o = np.array([h[3] for h in hist], dtype=np.float64)
-        cog_o = np.array([h[4] for h in hist], dtype=np.float64)
+        cog_o = _fill_nan_cog_like_offline_step5(
+            np.array([h[4] for h in hist], dtype=np.float64)
+        )
         tv = float(tv)
         if tv <= ts_orig[0] + 1e-9:
             return float(lon_o[0]), float(lat_o[0]), float(sog_o[0]), float(cog_o[0])
@@ -198,11 +239,12 @@ class RealtimePreprocessor:
         sog: float,
         cog: float,
     ) -> Optional[int]:
-        if not self.validate_message(mmsi, timestamp, lon, lat, sog, cog):
+        cog_n = self.normalize_incoming_cog(self.filter_cfg, float(cog))
+        if not self.validate_message(mmsi, timestamp, lon, lat, sog, cog_n):
             return None
         ts = float(timestamp)
         buf = self.buffers.setdefault(mmsi, VesselBuffer(mmsi, self.max_T))
-        new_pt = (ts, lon, lat, sog, cog)
+        new_pt = (ts, lon, lat, sog, cog_n)
         last = buf.get_latest_point()
         # 方案步骤 2.7 / 10：重复点以「最近原始 AIS 时间」为参照，避免缓冲末点为网格时间时误拒真报文
         dup_th = float(self.filter_cfg.duplicate_time_threshold)

@@ -80,4 +80,6 @@ class OnlinePredictionResult:
     fork_probabilities: Optional[Dict[int, float]] = None
     # 多分叉：cluster_id -> 该分支未来点序列（元素同 points 行）
     branch_predictions: Optional[Dict[int, List[Dict[str, float]]]] = None
+    # 方案 11.4 第四步：跨调用消歧后本航段内固定使用该簇模型
+    fork_locked_by_disambiguation: bool = False
     schema_version: str = "1"

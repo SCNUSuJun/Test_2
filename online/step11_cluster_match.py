@@ -7,12 +7,17 @@ import os
 import re
 import glob
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
 from config import PredictConfig
-from resources import ChannelGeometryStore, ForkJunctionRegistry, MmsiBranchStatsStore
+from resources import (
+    ChannelGeometryStore,
+    ForkJunctionRegistry,
+    MmsiBranchStatsStore,
+    NullForkJunctionRegistry,
+)
 from schemas import ClusterAsset
 from clustering.step6c_dtw_refine import ImprovedDTW
 from model.step7_normalization import NormalizationParams
@@ -268,11 +273,36 @@ class ClusterMatcher:
             "is_unknown": False,
         }
 
+    def _fork_allowed_cluster_ids(
+        self, vessel_buffer: VesselBuffer
+    ) -> Optional[Set[int]]:
+        """
+        None：未使用分叉口注册（Null）→ 保持原全局 Top-K 启发式。
+        空集：非 Null 注册表下当前位置不在任何分叉口邻域 → 不触发 fork。
+        非空：仅这些 cluster 可进入 fork 候选（方案 11.4 空间语义）。
+        """
+        reg = self.junction_registry
+        if reg is None or isinstance(reg, NullForkJunctionRegistry):
+            return None
+        last = vessel_buffer.get_latest_point()
+        if last is None:
+            return set()
+        _, lon, lat, _, _ = last
+        jid = reg.junction_for_location(float(lon), float(lat))
+        if jid is None:
+            return set()
+        return set(reg.clusters_at_junction(jid))
+
     def detect_fork_situation(
         self, vessel_buffer: VesselBuffer, top_k: Optional[int] = None
     ) -> Optional[List[Dict]]:
+        allow = self._fork_allowed_cluster_ids(vessel_buffer)
+        if allow is not None and len(allow) < 2:
+            return None
         dists: List[Tuple[int, float]] = []
         for cid, asset in self.cluster_assets.items():
+            if allow is not None and cid not in allow:
+                continue
             T = asset.T
             seq = vessel_buffer.get_sequence(T)
             if seq.shape[0] < T:

@@ -6,9 +6,13 @@ from .fork_resources import (
     ForkJunctionRegistry,
 )
 from .implementations import (
+    GeoJsonLineStringChannelStore,
     InMemoryMmsiBranchStatsStore,
+    JsonForkJunctionRegistry,
     NullChannelGeometryStore,
     NullForkJunctionRegistry,
+    load_channel_geometry_store,
+    load_fork_junction_registry,
     prune_branch_predictions_by_geometry,
 )
 
@@ -16,8 +20,12 @@ __all__ = [
     "ChannelGeometryStore",
     "MmsiBranchStatsStore",
     "ForkJunctionRegistry",
+    "GeoJsonLineStringChannelStore",
+    "JsonForkJunctionRegistry",
     "InMemoryMmsiBranchStatsStore",
     "NullChannelGeometryStore",
     "NullForkJunctionRegistry",
+    "load_channel_geometry_store",
+    "load_fork_junction_registry",
     "prune_branch_predictions_by_geometry",
 ]

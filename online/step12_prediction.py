@@ -24,16 +24,22 @@ class TrajectoryPredictor:
         predict_config: PredictConfig,
         resample_config: ResampleConfig,
         device: str = "cpu",
+        normalization_epsilon: Optional[float] = None,
     ):
         self.predict_cfg = predict_config
         self.resample_cfg = resample_config
         self.device = torch.device(device)
         self.logger = setup_logger("TrajectoryPredictor")
+        self._norm_eps = (
+            float(normalization_epsilon)
+            if normalization_epsilon is not None
+            else 1e-8
+        )
 
     def normalize_input(
         self, raw_sequence: np.ndarray, params: NormalizationParams
     ) -> np.ndarray:
-        eps = 1e-8
+        eps = self._norm_eps
         out = np.empty_like(raw_sequence, dtype=np.float64)
         cols = [
             (0, params.lon_min, params.lon_max),
@@ -100,7 +106,9 @@ class TrajectoryPredictor:
             x = torch.from_numpy(window_norm.astype(np.float32)).unsqueeze(0).to(dev)
             with torch.no_grad():
                 yhat = model(x).squeeze(0).cpu().numpy()
-            lon, lat, sog, cog = self.denormalize_output(yhat, params)
+            lon, lat, sog, cog = self.denormalize_output(
+                yhat, params, epsilon=self._norm_eps
+            )
             t_pred = current_timestamp + (k + 1) * dt
             preds.append(
                 {
@@ -159,6 +167,7 @@ class TrajectoryPredictor:
         fork_probabilities: Optional[Dict] = None,
         is_fork: bool = False,
         branch_predictions: Optional[Dict[int, List[Dict]]] = None,
+        fork_locked_by_disambiguation: bool = False,
     ) -> Dict:
         points = [self._normalize_step_dict(p) for p in predictions]
         br: Optional[Dict[int, List[Dict[str, float]]]] = None
@@ -179,6 +188,7 @@ class TrajectoryPredictor:
                 else None
             ),
             branch_predictions=br,
+            fork_locked_by_disambiguation=bool(fork_locked_by_disambiguation),
             schema_version="1",
         )
         return asdict(bundle)
